@@ -268,10 +268,17 @@ datatables.net-dt@^1.10.15, datatables.net-dt@^1.10.24:
     datatables.net "1.10.24"
     jquery ">=1.7"
 
-datatables.net@1.10.24, datatables.net@^1.10.15, datatables.net@^1.10.22:
+datatables.net@1.10.24:
   version "1.10.24"
   resolved "https://registry.yarnpkg.com/datatables.net/-/datatables.net-1.10.24.tgz#370e02f1e201de8334fdc92e7515c1624191573c"
   integrity sha512-CwXixvOdinvBCLXvcTloDinWiEM7Geaz+GwyjPrZL+MXIGPcLv4Op1bbWn8ErsI1JWMIWC8Cuf1rnDU2RrFV5w==
+  dependencies:
+    jquery ">=1.7"
+
+datatables.net@^1.10.15, datatables.net@^1.11.1:
+  version "1.11.1"
+  resolved "https://registry.yarnpkg.com/datatables.net/-/datatables.net-1.11.1.tgz#c16d76bc1ad2c3cc08e5ca41a61aa981a73e0e82"
+  integrity sha512-EBnYdMmYlLpnbxDs+JV27OlFMZYSAOUUFca6VB8Mq7HmK6ippXqxicLv8GTI9tDZ4puWuD39M9FcpTdQplPYzQ==
   dependencies:
     jquery ">=1.7"
 
