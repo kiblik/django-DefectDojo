@@ -126,6 +126,11 @@ a:hover {
   text-decoration: none;
 }
 
+.nav.nav-second-level.nav-up {
+    transform: translateY(-100%);
+    margin-top: 41px;
+}
+
 .nav-tabs {
     border-bottom: 1px solid rgb(148, 168, 187);
 }
@@ -1387,6 +1392,17 @@ div.custom-search-form {
 .product-graphs .panel-body {
 	border-right: 1px solid #dcdedf;
 	border-left: 1px solid #dcdedf;
+}
+
+.graph {
+    min-height: 158px;
+}
+
+.graph-loader {
+    min-height: 158px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .panel-footer {

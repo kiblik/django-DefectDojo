@@ -21,7 +21,7 @@ jobs:
     steps:
       
       - name: Checkout master
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: master
       
@@ -38,7 +38,7 @@ jobs:
         run: git push origin HEAD:${NEW_BRANCH}
       
       - name: Checkout new branch
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.NEW_BRANCH }}
       
@@ -55,9 +55,22 @@ jobs:
           grep version dojo/__init__.py
           grep appVersion helm/defectdojo/Chart.yaml
           grep version components/package.json
-      
+
+      - name: Create upgrade notes to documentation
+        run: |
+          minorv=$(echo ${{ github.event.inputs.release_number_dev }} | cut -d '.' -f -2)
+          patchv=$(echo ${{ github.event.inputs.release_number_dev }} | cut -d '-' -f -1)
+          echo -n "---
+          title: 'Upgrading to DefectDojo Version $minorv.x'
+          toc_hide: true
+          ---
+          There are no special instruction for upgrading to $minorv.x. Check the [Release Notes](https://github.com/DefectDojo/django-DefectDojo/releases/tag/$patchv) for the contents of the release.
+          " > docs/content/en/getting_started/upgrading/$minorv.md
+          git add docs/content/en/getting_started/upgrading/$minorv.md
+        if: endsWith(github.event.inputs.release_number_dev, '.0-dev')
+
       - name: Push version changes
-        uses: stefanzweifel/git-auto-commit-action@v4.16.0
+        uses: stefanzweifel/git-auto-commit-action@v5.0.0
         with:
           commit_user_name: "${{ env.GIT_USERNAME }}"
           commit_user_email: "${{ env.GIT_EMAIL }}"
@@ -87,7 +100,7 @@ jobs:
     steps:
       
       - name: Checkout master
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: master
       
@@ -104,7 +117,7 @@ jobs:
         run: git push origin HEAD:${NEW_BRANCH}
       
       - name: Checkout new branch
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ env.NEW_BRANCH }}
       
@@ -123,7 +136,7 @@ jobs:
           grep version components/package.json
       
       - name: Push version changes
-        uses: stefanzweifel/git-auto-commit-action@v4.16.0
+        uses: stefanzweifel/git-auto-commit-action@v5.0.0
         with:
           commit_user_name: "${{ env.GIT_USERNAME }}"
           commit_user_email: "${{ env.GIT_EMAIL }}"
@@ -143,7 +156,7 @@ jobs:
             github.rest.pulls.create({
               owner: '${{ env.REPO_ORG }}',
               repo: 'django-DefectDojo',
-              title: 'Release: Merge back ${{ github.event.inputs.release_number_new }} into dev from: ${{ env.NEW_BRANCH }}',
+              title: 'Release: Merge back ${{ github.event.inputs.release_number_new }} into bugfix from: ${{ env.NEW_BRANCH }}',
               body: `Release triggered by \`${ process.env.GITHUB_ACTOR }\``,
               head: '${{ env.NEW_BRANCH }}',
               base: 'bugfix'

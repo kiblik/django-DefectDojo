@@ -359,7 +359,25 @@ class System_Settings(models.Model):
     enable_mail_notifications = models.BooleanField(default=False, blank=False)
     mail_notifications_to = models.CharField(max_length=200, default='',
                                              blank=True)
-    false_positive_history = models.BooleanField(default=False, help_text=_("DefectDojo will automatically mark the finding as a false positive if the finding has been previously marked as a false positive. Not needed when using deduplication, advised to not combine these two."))
+
+    false_positive_history = models.BooleanField(
+        default=False, help_text=_(
+            "(EXPERIMENTAL) DefectDojo will automatically mark the finding as a "
+            "false positive if an equal finding (according to its dedupe algorithm) "
+            "has been previously marked as a false positive on the same product. "
+            "ATTENTION: Although the deduplication algorithm is used to determine "
+            "if a finding should be marked as a false positive, this feature will "
+            "not work if deduplication is enabled since it doesn't make sense to use both."
+        )
+    )
+
+    retroactive_false_positive_history = models.BooleanField(
+        default=False, help_text=_(
+            "(EXPERIMENTAL) FP History will also retroactively mark/unmark all "
+            "existing equal findings in the same product as a false positives. "
+            "Only works if the False Positive History feature is also enabled."
+        )
+    )
 
     url_prefix = models.CharField(max_length=300, default='', blank=True, help_text=_("URL prefix if DefectDojo is installed in it's own virtual subdirectory."))
     team_name = models.CharField(max_length=100, default='', blank=True)
@@ -1098,8 +1116,7 @@ class Product(models.Model):
     @cached_property
     def open_findings_list(self):
         findings = Finding.objects.filter(test__engagement__product=self,
-                                          active=True,
-                                          )
+                                          active=True)
         findings_list = []
         for i in findings:
             findings_list.append(i.id)
@@ -1113,6 +1130,15 @@ class Product(models.Model):
     def get_absolute_url(self):
         from django.urls import reverse
         return reverse('view_product', args=[str(self.id)])
+
+    @property
+    def violates_sla(self):
+        findings = Finding.objects.filter(test__engagement__product=self,
+                                        active=True)
+        for f in findings:
+            if f.violates_sla:
+                return True
+        return False
 
 
 class Product_Member(models.Model):
@@ -1645,7 +1671,17 @@ class Endpoint(models.Model):
 
     def __eq__(self, other):
         if isinstance(other, Endpoint):
-            return str(self) == str(other)
+            # Check if the contents of the endpoint match
+            contents_match = str(self) == str(other)
+            # Determine if products should be used in the equation
+            if self.product is not None and other.product is not None:
+                # Check if the products are the same
+                products_match = (self.product) == other.product
+                # Check if the contents match
+                return products_match and contents_match
+            else:
+                return contents_match
+
         else:
             return NotImplemented
 
@@ -1674,20 +1710,41 @@ class Endpoint(models.Model):
         return self.findings.all().count()
 
     def active_findings(self):
-        findings = self.findings.filter(active=True,
-                                      out_of_scope=False,
-                                      mitigated__isnull=True,
-                                      false_p=False,
-                                      duplicate=False,
-                                      status_finding__mitigated=False,
-                                      status_finding__false_positive=False,
-                                      status_finding__out_of_scope=False,
-                                      status_finding__risk_accepted=False).order_by('numerical_severity')
+        findings = self.findings.filter(
+            active=True,
+            out_of_scope=False,
+            mitigated__isnull=True,
+            false_p=False,
+            duplicate=False,
+            status_finding__mitigated=False,
+            status_finding__false_positive=False,
+            status_finding__out_of_scope=False,
+            status_finding__risk_accepted=False
+        ).order_by('numerical_severity')
+        return findings
+
+    def active_verified_findings(self):
+        findings = self.findings.filter(
+            active=True,
+            verified=True,
+            out_of_scope=False,
+            mitigated__isnull=True,
+            false_p=False,
+            duplicate=False,
+            status_finding__mitigated=False,
+            status_finding__false_positive=False,
+            status_finding__out_of_scope=False,
+            status_finding__risk_accepted=False
+        ).order_by('numerical_severity')
         return findings
 
     @property
     def active_findings_count(self):
         return self.active_findings().count()
+
+    @property
+    def active_verified_findings_count(self):
+        return self.active_verified_findings().count()
 
     def host_endpoints(self):
         return Endpoint.objects.filter(host=self.host,
@@ -1723,21 +1780,43 @@ class Endpoint(models.Model):
         return self.host_findings().count()
 
     def host_active_findings(self):
-        findings = Finding.objects.filter(active=True,
-                                        out_of_scope=False,
-                                        mitigated__isnull=True,
-                                        false_p=False,
-                                        duplicate=False,
-                                        status_finding__mitigated=False,
-                                        status_finding__false_positive=False,
-                                        status_finding__out_of_scope=False,
-                                        status_finding__risk_accepted=False,
-                                        endpoints__in=self.host_endpoints()).order_by('numerical_severity')
+        findings = Finding.objects.filter(
+            active=True,
+            out_of_scope=False,
+            mitigated__isnull=True,
+            false_p=False,
+            duplicate=False,
+            status_finding__mitigated=False,
+            status_finding__false_positive=False,
+            status_finding__out_of_scope=False,
+            status_finding__risk_accepted=False,
+            endpoints__in=self.host_endpoints()
+        ).order_by('numerical_severity')
+        return findings
+
+    def host_active_verified_findings(self):
+        findings = Finding.objects.filter(
+            active=True,
+            verified=True,
+            out_of_scope=False,
+            mitigated__isnull=True,
+            false_p=False,
+            duplicate=False,
+            status_finding__mitigated=False,
+            status_finding__false_positive=False,
+            status_finding__out_of_scope=False,
+            status_finding__risk_accepted=False,
+            endpoints__in=self.host_endpoints()
+        ).order_by('numerical_severity')
         return findings
 
     @property
     def host_active_findings_count(self):
         return self.host_active_findings().count()
+
+    @property
+    def host_active_verified_findings_count(self):
+        return self.host_active_verified_findings().count()
 
     def get_breadcrumbs(self):
         bc = self.product.get_breadcrumbs()
@@ -2689,6 +2768,10 @@ class Finding(models.Model):
             else:
                 days = get_work_days(self.date, get_current_date())
         else:
+            from datetime import datetime
+            if isinstance(start_date, datetime):
+                start_date = start_date.date()
+
             if self.mitigated:
                 diff = self.mitigated.date() - start_date
             else:
@@ -2725,6 +2808,8 @@ class Finding(models.Model):
     def sla_deadline(self):
         days_remaining = self.sla_days_remaining()
         if days_remaining:
+            if self.mitigated:
+                return self.mitigated.date() + relativedelta(days=days_remaining)
             return get_current_date() + relativedelta(days=days_remaining)
         return None
 
@@ -2787,10 +2872,10 @@ class Finding(models.Model):
         return self.finding_group is not None
 
     def save_no_options(self, *args, **kwargs):
-        return self.save(dedupe_option=False, false_history=False, rules_option=False, product_grading_option=False,
+        return self.save(dedupe_option=False, rules_option=False, product_grading_option=False,
              issue_updater_option=False, push_to_jira=False, user=None, *args, **kwargs)
 
-    def save(self, dedupe_option=True, false_history=False, rules_option=True, product_grading_option=True,
+    def save(self, dedupe_option=True, rules_option=True, product_grading_option=True,
              issue_updater_option=True, push_to_jira=False, user=None, *args, **kwargs):
 
         from dojo.finding import helper as finding_helper
@@ -2826,7 +2911,6 @@ class Finding(models.Model):
 
         if self.pk is None:
             # We enter here during the first call from serializers.py
-            false_history = True
             from dojo.utils import apply_cwe_to_template
             self = apply_cwe_to_template(self)
 
@@ -2855,8 +2939,8 @@ class Finding(models.Model):
         self.found_by.add(self.test.test_type)
 
         # only perform post processing (in celery task) if needed. this check avoids submitting 1000s of tasks to celery that will do nothing
-        if dedupe_option or false_history or issue_updater_option or product_grading_option or push_to_jira:
-            finding_helper.post_process_finding_save(self, dedupe_option=dedupe_option, false_history=false_history, rules_option=rules_option, product_grading_option=product_grading_option,
+        if dedupe_option or issue_updater_option or product_grading_option or push_to_jira:
+            finding_helper.post_process_finding_save(self, dedupe_option=dedupe_option, rules_option=rules_option, product_grading_option=product_grading_option,
                 issue_updater_option=issue_updater_option, push_to_jira=push_to_jira, user=user, *args, **kwargs)
         else:
             logger.debug('no options selected that require finding post processing')
@@ -2883,20 +2967,41 @@ class Finding(models.Model):
                 'url': reverse('view_finding', args=(self.id,))}]
         return bc
 
+    def get_valid_request_response_pairs(self):
+        empty_value = base64.b64encode("".encode())
+        # Get a list of all req/resp pairs
+        all_req_resps = self.burprawrequestresponse_set.all()
+        # Filter away those that do not have any contents
+        valid_req_resps = all_req_resps.exclude(
+            burpRequestBase64__exact=empty_value,
+            burpResponseBase64__exact=empty_value,
+        )
+
+        return valid_req_resps
+
     def get_report_requests(self):
-        if self.burprawrequestresponse_set.count() >= 3:
-            return self.burprawrequestresponse_set.all()[0:3]
-        elif self.burprawrequestresponse_set.count() > 0:
-            return self.burprawrequestresponse_set.all()
+        # Get the list of request response pairs that are non empty
+        request_response_pairs = self.get_valid_request_response_pairs()
+        # Determine how many to return
+        if request_response_pairs.count() >= 3:
+            return request_response_pairs[0:3]
+        elif request_response_pairs.count() > 0:
+            return request_response_pairs
 
     def get_request(self):
-        if self.burprawrequestresponse_set.count() > 0:
-            reqres = self.burprawrequestresponse_set().first()
+        # Get the list of request response pairs that are non empty
+        request_response_pairs = self.get_valid_request_response_pairs()
+        # Determine what to return
+        if request_response_pairs.count() > 0:
+            reqres = request_response_pairs.first()
         return base64.b64decode(reqres.burpRequestBase64)
 
     def get_response(self):
-        if self.burprawrequestresponse_set.count() > 0:
-            reqres = self.burprawrequestresponse_set.first()
+        # Get the list of request response pairs that are non empty
+        request_response_pairs = self.get_valid_request_response_pairs()
+        # Determine what to return
+        if request_response_pairs.count() > 0:
+            reqres = request_response_pairs.first()
         res = base64.b64decode(reqres.burpResponseBase64)
         # Removes all blank lines
         res = re.sub(r'\n\s*\n', '\n', res)
@@ -2995,6 +3100,11 @@ class Finding(models.Model):
         # get a copy of the tags to be inherited
         incoming_inherited_tags = [tag.name for tag in self.test.engagement.product.tags.all()]
         _manage_inherited_tags(self, incoming_inherited_tags, potentially_existing_tags=potentially_existing_tags)
+
+    @property
+    def violates_sla(self):
+        days_remaining = self.sla_days_remaining()
+        return days_remaining < 0 if days_remaining else False
 
 
 class FindingAdmin(admin.ModelAdmin):
@@ -3626,11 +3736,11 @@ class JIRA_Issue(models.Model):
                                        help_text=_("The date the linked Jira issue was last modified."))
 
     def set_obj(self, obj):
-        if type(obj) == Finding:
+        if isinstance(obj, Finding):
             self.finding = obj
-        elif type(obj) == Finding_Group:
+        elif isinstance(obj, Finding_Group):
             self.finding_group = obj
-        elif type(obj) == Engagement:
+        elif isinstance(obj, Engagement):
             self.engagement = obj
         else:
             raise ValueError('unknown object type while creating JIRA_Issue: %s' % to_str_typed(obj))
@@ -3674,7 +3784,7 @@ class Notifications(models.Model):
     sla_breach = MultiSelectField(choices=NOTIFICATION_CHOICES, default=DEFAULT_NOTIFICATION, blank=True,
         verbose_name=_('SLA breach'),
         help_text=_('Get notified of (upcoming) SLA breaches'))
-    risk_acceptance_expiration = MultiSelectField(choices=NOTIFICATION_CHOICES, default='alert', blank=True,
+    risk_acceptance_expiration = MultiSelectField(choices=NOTIFICATION_CHOICES, default=DEFAULT_NOTIFICATION, blank=True,
         verbose_name=_('Risk Acceptance Expiration'),
         help_text=_('Get notified of (upcoming) Risk Acceptance expiries'))
 
@@ -4179,6 +4289,7 @@ def enable_disable_auditlog(enable=True):
         auditlog.register(Endpoint)
         auditlog.register(Engagement)
         auditlog.register(Finding)
+        auditlog.register(Product_Type)
         auditlog.register(Product)
         auditlog.register(Test)
         auditlog.register(Risk_Acceptance)
@@ -4190,6 +4301,7 @@ def enable_disable_auditlog(enable=True):
         auditlog.unregister(Endpoint)
         auditlog.unregister(Engagement)
         auditlog.unregister(Finding)
+        auditlog.unregister(Product_Type)
         auditlog.unregister(Product)
         auditlog.unregister(Test)
         auditlog.unregister(Risk_Acceptance)

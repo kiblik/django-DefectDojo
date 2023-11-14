@@ -184,7 +184,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="Defect Dojo API",
         default_version='v2',
-        description="To use the API you need be authorized.",
+        description="To use the API you need be authorized.\n\n## Deprecated - Removal in v2.30.0\n#### Please use the [OpenAPI3 version](/api/v2/oa3/swagger-ui/)",
     ),
     # if public=False, includes only endpoints the current user has access to
     public=True,
@@ -194,7 +194,13 @@ schema_view = get_schema_view(
     patterns=api_v2_urls,
 )
 
-urlpatterns = [
+urlpatterns = []
+
+# sometimes urlpatterns needed be added from local_settings.py before other URLs of core dojo
+if hasattr(settings, 'PRELOAD_URL_PATTERNS'):
+    urlpatterns += settings.PRELOAD_URL_PATTERNS
+
+urlpatterns += [
     # action history
     re_path(r'^%shistory/(?P<cid>\d+)/(?P<oid>\d+)$' % get_system_setting('url_prefix'), views.action_history, name='action_history'),
     re_path(r'^%s' % get_system_setting('url_prefix'), include(ur)),
@@ -232,3 +238,13 @@ if hasattr(settings, 'DJANGO_ADMIN_ENABLED'):
 # sometimes urlpatterns needed be added from local_settings.py to avoid having to modify core defect dojo files
 if hasattr(settings, 'EXTRA_URL_PATTERNS'):
     urlpatterns += settings.EXTRA_URL_PATTERNS
+
+
+# Remove any other endpoints that drf-spectacular is guessing should be in the swagger
+def drf_spectacular_preprocessing_filter_spec(endpoints):
+    filtered = []
+    for (path, path_regex, method, callback) in endpoints:
+        # Remove all but DRF API endpoints
+        if path.startswith("/api/v2/"):
+            filtered.append((path, path_regex, method, callback))
+    return filtered
