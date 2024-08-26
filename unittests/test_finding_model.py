@@ -491,3 +491,81 @@ class TestFindingSLAExpiration(DojoTestCase):
         self.assertEqual(finding.sla_expiration_date, None)
         self.assertEqual(finding.sla_days_remaining(), None)
         self.assertEqual(finding.sla_deadline(), None)
+
+    def test_sla_expiration_date_after_eng_override_added(self):
+        """
+        Tests if the SLA expiration date and SLA days remaining are calculated correctly
+        after a different engagement SLA was set
+        """
+        user, _ = User.objects.get_or_create(username="admin")
+        product_type = self.create_product_type("test_product_type")
+        sla_config_1 = self.create_sla_configuration(name="test_sla_config_1")
+        sla_config_2 = self.create_sla_configuration(
+            name="test_sla_config_2",
+            critical=1,
+            high=2,
+            medium=3,
+            low=4)
+        product = self.create_product(name="test_product", prod_type=product_type)
+        product.sla_configuration = sla_config_1
+        product.save()
+        engagement = self.create_engagement("test_eng", product)
+        test = self.create_test(engagement=engagement, scan_type="ZAP Scan", title="test_test")
+        finding = Finding.objects.create(
+            test=test,
+            reporter=user,
+            title="test_finding",
+            severity="Critical",
+            date=datetime.now().date())
+
+        expected_sla_days = getattr(product.sla_configuration, finding.severity.lower(), None)
+        self.assertEqual(finding.sla_expiration_date, datetime.now().date() + timedelta(days=expected_sla_days))
+        self.assertEqual(finding.sla_days_remaining(), expected_sla_days)
+
+        engagement.sla_configuration = sla_config_2
+        engagement.save()
+
+        finding.set_sla_expiration_date()
+
+        expected_sla_days = getattr(engagement.sla_configuration, finding.severity.lower(), None)
+        self.assertEqual(finding.sla_expiration_date, datetime.now().date() + timedelta(days=expected_sla_days))
+        self.assertEqual(finding.sla_days_remaining(), expected_sla_days)
+
+    def test_sla_expiration_date_after_test_override_added(self):
+        """
+        Tests if the SLA expiration date and SLA days remaining are calculated correctly
+        after a different test SLA was set
+        """
+        user, _ = User.objects.get_or_create(username="admin")
+        product_type = self.create_product_type("test_product_type")
+        sla_config_1 = self.create_sla_configuration(name="test_sla_config_1")
+        sla_config_2 = self.create_sla_configuration(
+            name="test_sla_config_2",
+            critical=1,
+            high=2,
+            medium=3,
+            low=4)
+        product = self.create_product(name="test_product", prod_type=product_type)
+        product.sla_configuration = sla_config_1
+        product.save()
+        engagement = self.create_engagement("test_eng", product)
+        test = self.create_test(engagement=engagement, scan_type="ZAP Scan", title="test_test")
+        finding = Finding.objects.create(
+            test=test,
+            reporter=user,
+            title="test_finding",
+            severity="Critical",
+            date=datetime.now().date())
+
+        expected_sla_days = getattr(product.sla_configuration, finding.severity.lower(), None)
+        self.assertEqual(finding.sla_expiration_date, datetime.now().date() + timedelta(days=expected_sla_days))
+        self.assertEqual(finding.sla_days_remaining(), expected_sla_days)
+
+        test.sla_configuration = sla_config_2
+        test.save()
+
+        finding.set_sla_expiration_date()
+
+        expected_sla_days = getattr(test.sla_configuration, finding.severity.lower(), None)
+        self.assertEqual(finding.sla_expiration_date, datetime.now().date() + timedelta(days=expected_sla_days))
+        self.assertEqual(finding.sla_days_remaining(), expected_sla_days)
