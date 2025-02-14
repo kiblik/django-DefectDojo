@@ -1,7 +1,7 @@
 name: "Detect Merge Conflicts"
 on:
   workflow_dispatch:
-  pull_request:
+  push:
     branches:
       - dev
       - master
@@ -9,7 +9,6 @@ on:
       - release/*
       
   pull_request_target:
-    types: [synchronize]
 
 jobs:
   main:
