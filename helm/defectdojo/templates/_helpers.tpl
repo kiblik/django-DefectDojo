@@ -163,7 +163,7 @@ Create the name of the service account to use
       secretKeyRef:
         name: {{ .Values.postgresql.auth.existingSecret | default "defectdojo-postgresql-specific" }}
         key: {{ .Values.postgresql.auth.secretKeys.userPasswordKey | default "postgresql-password" }}
-  {{- with.Values.django.extraEnv }}
+  {{- with .Values.extraEnv }}
     {{- toYaml . | nindent 2 }}
   {{- end }}
   resources:
