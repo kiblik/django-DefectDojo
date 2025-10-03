@@ -68,6 +68,10 @@ jobs:
       - name: Check update of "artifacthub.io/changes" HELM annotation
         if: env.changed == 'true'
         run: |
+          # fast fail if `git show` fails
+          set -e
+          set -o pipefail
+
           target_branch=${{ env.ct-branch }}
 
           echo "Checking Chart.yaml annotation changes"
