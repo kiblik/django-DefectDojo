@@ -722,7 +722,7 @@ class RiskAcceptanceViewSet(
         return (
             get_authorized_risk_acceptances(Permissions.Risk_Acceptance)
             .prefetch_related(
-                "notes", "engagement_set", "owner", "accepted_findings",
+                "notes", "product", "owner", "accepted_findings",
             )
             .distinct()
         )

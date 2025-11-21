@@ -91,6 +91,7 @@ from dojo.models import (
     Product_Group,
     Product_Member,
     Product_Type,
+    Risk_Acceptance,
     System_Settings,
     Test,
     Test_Import,
@@ -375,6 +376,24 @@ def view_product_components(request, pid):
         "result": result,
         "enable_table_filtering": get_system_setting("enable_ui_table_based_searching"),
         "component_words": sorted(set(component_words)),
+    })
+
+
+@user_is_authorized(Product, Permissions.Risk_Acceptance, "pid")
+def view_product_risk_acceptances(request, pid):
+    prod = get_object_or_404(Product, id=pid)
+    product_tab = Product_Tab(prod, title=_("Product"), tab="risk_acceptance")
+
+    # Get all risk acceptances for this product
+    risk_acceptances = Risk_Acceptance.objects.filter(product=prod).select_related("owner").annotate(
+        accepted_findings_count=Count("accepted_findings__id"),
+    ).order_by("-created")
+
+    return render(request, "dojo/product_risk_acceptances.html", {
+        "prod": prod,
+        "product_tab": product_tab,
+        "risk_acceptances": risk_acceptances,
+        "enable_table_filtering": get_system_setting("enable_ui_table_based_searching"),
     })
 
 
