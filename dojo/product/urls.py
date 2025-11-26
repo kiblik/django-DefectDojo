@@ -10,6 +10,8 @@ urlpatterns = [
         name="view_product"),
     re_path(r"^product/(?P<pid>\d+)/components$", views.view_product_components,
         name="view_product_components"),
+    re_path(r"^product/(?P<pid>\d+)/risk_acceptance$", views.view_product_risk_acceptances,
+        name="view_product_risk_acceptances"),
     re_path(r"^product/(?P<pid>\d+)/engagements$", views.view_engagements,
         name="view_engagements"),
     re_path(

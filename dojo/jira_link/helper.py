@@ -1698,8 +1698,8 @@ def process_resolution_from_jira(finding, resolution_id, resolution_name, assign
                 ra = Risk_Acceptance.objects.create(
                     accepted_by=assignee_name,
                     owner=finding.reporter,
+                    product=finding.test.engagement.product,
                 )
-                finding.test.engagement.risk_acceptance.add(ra)
                 ra_helper.add_findings_to_risk_acceptance(User.objects.get_or_create(username="JIRA")[0], ra, [finding])
                 status_changed = True
         elif jira_instance and resolution_name in jira_instance.false_positive_resolutions:
